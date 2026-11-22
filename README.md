@@ -99,6 +99,15 @@ bistro bundle -o /chromium.rootfs.tar \
 
 - `--package` adds a Debian package to the tarball.
 
+### `--rootfs`
+
+Both `scan` and `bundle` accept `--rootfs` to read a rootfs tarball (`tar:`) or a Docker image tar archive created with `docker save` (`oci:`). Defaults to the host filesystem.
+
+```bash
+docker save -o debian.tar debian:latest
+bistro scan --rootfs oci:debian.tar /usr/bin/env
+```
+
 ## LICENSE
 
 MIT License
