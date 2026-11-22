@@ -49,103 +49,14 @@ func load(di bistro.DI) error {
 }
 
 func (c *app) command() *cli.Command {
-	var rootFs string
-	rootFsFlag := &cli.StringFlag{
-		Name:        "rootfs",
-		Usage:       "Root filesystem: tar:<path> or oci:<tar-path> from docker save (default: host filesystem)",
-		Destination: &rootFs,
-	}
 	return &cli.Command{
 		Name:    "bistro",
 		Usage:   "Build a distroless root filesystem",
 		Version: fmt.Sprintf("%s (commit: %s, date: %s)", c.Version, c.Commit, c.Date),
 		Commands: []*cli.Command{
-			{
-				Name:      "scan",
-				ArgsUsage: "SCAN [fileorDirs...]",
-				Flags: []cli.Flag{
-					&cli.StringFlag{
-						Name:    "format",
-						Aliases: []string{"f"},
-						Usage:   "Output format (list, flat, tree)",
-						Value:   "tree",
-					},
-					rootFsFlag,
-					&cli.StringSliceFlag{
-						Name:  "exclude",
-						Usage: "Files or directories to exclude from scanning.",
-					},
-				},
-				Action: func(ctx context.Context, cmd *cli.Command) error {
-					if cmd.Args().Len() == 0 {
-						return fmt.Errorf("scan requires at least one file or directory")
-					}
-					fsOpener, err := openFs(rootFs)
-					if err != nil {
-						return err
-					}
-					defer fsOpener.Close()
-					fss := fsOpener.FS()
-					paths := c.rootfsPaths(cmd.Args().Slice())
-					excludes := c.rootfsPaths(cmd.StringSlice("exclude"))
-					format := cmd.String("format")
-					return c.newScanApp(scanAppInput{
-						paths:    paths,
-						excludes: excludes,
-						format:   format,
-						fs:       fss,
-					}).Run(ctx)
-				},
-			},
-			{
-				Name:      "bundle",
-				ArgsUsage: "BUNDLE [files or directories...]",
-				Flags: []cli.Flag{
-					&cli.StringFlag{
-						Name:     "out",
-						Aliases:  []string{"o"},
-						Usage:    "Output root filesystem tar archive",
-						Required: true,
-					},
-					&cli.StringSliceFlag{
-						Name:  "package",
-						Usage: "Packages to include in the root filesystem",
-					},
-					&cli.StringSliceFlag{
-						Name:  "exclude",
-						Usage: "Files or directories to exclude from the root filesystem.",
-					},
-					&cli.StringSliceFlag{
-						Name:  "exclude-scan",
-						Usage: "Files or directories to exclude from scanning.",
-					},
-					rootFsFlag,
-					&cli.BoolFlag{
-						Name:  "no-scan",
-						Usage: "Disable scanning for ELF dependencies",
-					},
-				},
-				Action: func(ctx context.Context, cmd *cli.Command) error {
-					fsHandle, err := openFs(rootFs)
-					if err != nil {
-						return err
-					}
-					defer fsHandle.Close()
-					fss := fsHandle.FS()
-					di := c.depsFromFs(fss)
-					if err := load(di); err != nil {
-						return err
-					}
-					return c.bundle(di, bistro.BundleInput{
-						Out:          rootfs.MustPath(c.absPath(cmd.String("out"))),
-						Files:        c.rootfsPaths(cmd.Args().Slice()),
-						Packages:     cmd.StringSlice("package"),
-						Excludes:     c.rootfsPaths(cmd.StringSlice("exclude")),
-						ExcludeScans: c.rootfsPaths(cmd.StringSlice("exclude-scan")),
-						NoScan:       cmd.Bool("no-scan"),
-					})
-				},
-			},
+			c.scanCommand(),
+			c.bundleCommand(),
+			c.makeCommand(),
 		},
 	}
 }
@@ -182,12 +93,9 @@ func (c *app) stderr() io.Writer {
 func (c *app) printf(format string, args ...any) {
 	fmt.Fprintf(c.stdout(), format, args...)
 }
+
 func (c *app) errorf(format string, args ...any) {
 	fmt.Fprintf(c.stderr(), format, args...)
-}
-
-func (c *app) bundle(di bistro.DI, input bistro.BundleInput) error {
-	return bistro.Bundle(di, input)
 }
 
 func (c *app) absPath(p string) string {

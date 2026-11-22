@@ -1,0 +1,21 @@
+build:
+  from: bistro:latest
+  user: nonroot
+  stopsignal: SIGTERM
+  workdir: /bin
+  volumes:
+    - /tmp
+bundle:
+  files:
+    - /bin/bistro
+  users:
+    - name: nonroot
+      uid: 1000
+      gid: 1000
+  groups:
+    - name: nonroot
+      gid: 1000
+  excludes:
+    - /tmp
+  packages:
+    - base-files

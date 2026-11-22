@@ -16,3 +16,5 @@ build:
 		--build-arg VERSION=$(VERSION) \
 		--build-arg COMMIT=$(COMMIT) \
 		--build-arg DATE=$(DATE)
+make: main
+	./main make -t bistro

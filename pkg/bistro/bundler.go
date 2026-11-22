@@ -16,6 +16,8 @@ type BundleInput struct {
 	NoScan       bool
 	Excludes     []rootfs.Path
 	ExcludeScans []rootfs.Path
+	Users        []User
+	Groups       []Group
 }
 
 type bundler struct {
@@ -26,6 +28,8 @@ type bundler struct {
 	packages        []*dpkg.Package
 	excludes        rootfs.PathSet
 	files           []rootfs.Path
+	users           []User
+	groups          []Group
 	missingPackages []string
 	brokenDeps      []*ElfDependency
 	visitedPackages util.Map[string, bool]
@@ -52,6 +56,8 @@ func Bundle(di DI, input BundleInput) error {
 		scanner:     scanner,
 		baker:       baker,
 		excludes:    excludes,
+		users:       input.Users,
+		groups:      input.Groups,
 	}
 	return b.bundle()
 }
@@ -102,6 +108,8 @@ func (b *bundler) bundle() error {
 		DpkgList: b.packages,
 		Files:    b.files,
 		Excludes: b.excludes,
+		Users:    b.users,
+		Groups:   b.groups,
 	})
 }
 

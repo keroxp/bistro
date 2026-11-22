@@ -11,6 +11,7 @@ import (
 	"github.com/loilo-inc/bistro/pkg/ldd"
 	"github.com/loilo-inc/bistro/pkg/rootfs"
 	"github.com/loilo-inc/bistro/pkg/util"
+	"github.com/urfave/cli/v3"
 )
 
 type scanApp struct {
@@ -24,6 +25,50 @@ type scanAppInput struct {
 	excludes []rootfs.Path
 	format   string
 	fs       fs.FS
+}
+
+func (c *app) scanCommand() *cli.Command {
+	rootFsPtr, rootFsFlag := rootFsFlag()
+	var excludes []string
+	var format string
+	return &cli.Command{
+		Name:      "scan",
+		ArgsUsage: "SCAN [fileorDirs...]",
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:        "format",
+				Aliases:     []string{"f"},
+				Usage:       "Output format (list, flat, tree)",
+				Value:       "tree",
+				Destination: &format,
+			},
+			rootFsFlag,
+			&cli.StringSliceFlag{
+				Name:        "exclude",
+				Usage:       "Files or directories to exclude from scanning.",
+				Destination: &excludes,
+			},
+		},
+		Action: func(ctx context.Context, cmd *cli.Command) error {
+			if cmd.Args().Len() == 0 {
+				return fmt.Errorf("scan requires at least one file or directory")
+			}
+			fsOpener, err := openFs(*rootFsPtr)
+			if err != nil {
+				return err
+			}
+			defer fsOpener.Close()
+			fss := fsOpener.FS()
+			paths := c.rootfsPaths(cmd.Args().Slice())
+			excludes := c.rootfsPaths(excludes)
+			return c.newScanApp(scanAppInput{
+				paths:    paths,
+				excludes: excludes,
+				format:   format,
+				fs:       fss,
+			}).Run(ctx)
+		},
+	}
 }
 
 func (c *app) newScanApp(input scanAppInput) *scanApp {
