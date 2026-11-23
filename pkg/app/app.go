@@ -11,7 +11,6 @@ import (
 	"github.com/loilo-inc/bistro/pkg/bistro"
 	"github.com/loilo-inc/bistro/pkg/dpkg"
 	"github.com/loilo-inc/bistro/pkg/ldd"
-	"github.com/loilo-inc/bistro/pkg/rootfs"
 	"github.com/urfave/cli/v3"
 )
 
@@ -56,7 +55,6 @@ func (c *app) command() *cli.Command {
 		Commands: []*cli.Command{
 			c.scanCommand(),
 			c.bundleCommand(),
-			c.makeCommand(),
 		},
 	}
 }
@@ -103,12 +101,4 @@ func (c *app) absPath(p string) string {
 		return p
 	}
 	return path.Join(c.Cwd, p)
-}
-
-func (c *app) rootfsPaths(paths []string) []rootfs.Path {
-	var result []rootfs.Path
-	for _, p := range paths {
-		result = append(result, rootfs.MustPath(c.absPath(p)))
-	}
-	return result
 }

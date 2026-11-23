@@ -171,8 +171,10 @@ func TestBundlePositionalFiles(t *testing.T) {
 		"workspace/second": {Data: []byte("second content")},
 	}
 	out := filepath.Join(t.TempDir(), "bundle.tar")
-	require.NoError(t, fixture.run("bundle", "-o", out, "first", "second"))
+	require.NoError(t, fixture.run("bundle", "-o", out, "./nested/../first", "second"))
 	assert.Equal(t, map[string]string{
+		"etc/passwd":      "root:x:0:0:root:/root:/sbin/nologin\n",
+		"etc/group":       "root:x:0:\n",
 		"workspace/first": "first content", "workspace/second": "second content",
 	}, readArchiveFiles(t, out))
 }
@@ -293,6 +295,8 @@ func TestBundleExcludeFlags(t *testing.T) {
 		"--exclude-scan", "/workspace/content/copy-only",
 		"content", "content/cache/app", "content/scan-only", "content/copy-only"))
 	assert.Equal(t, map[string]string{
+		"etc/passwd":                      "root:x:0:0:root:/root:/sbin/nologin\n",
+		"etc/group":                       "root:x:0:\n",
 		"workspace/content/cache-old/app": string(executable),
 		"workspace/content/copy-only":     string(fixture.files["workspace/content/copy-only"].Data),
 	}, readArchiveFiles(t, out))
@@ -331,7 +335,9 @@ func TestBundleInputFlags(t *testing.T) {
 			args = append(args, "/workspace/bin/app", "/workspace/scan-one", "/workspace/scan-two")
 			require.NoError(t, fixture.run(args...))
 			entries := readArchiveFiles(t, filepath.Join(fixture.input.Cwd, "bundle.tar"))
-			assert.Len(t, entries, 9)
+			assert.Len(t, entries, 11)
+			assert.Equal(t, "root:x:0:0:root:/root:/sbin/nologin\n", entries["etc/passwd"])
+			assert.Equal(t, "root:x:0:\n", entries["etc/group"])
 			assert.Equal(t, string(executable), entries["workspace/bin/app"])
 			assert.Equal(t, "alpha content", entries["workspace/share/alpha.txt"])
 			assert.Equal(t, "beta content", entries["workspace/share/beta.txt"])

@@ -29,11 +29,18 @@ type scanAppInput struct {
 
 func (c *app) scanCommand() *cli.Command {
 	rootFsPtr, rootFsFlag := rootFsFlag()
-	var excludes []string
+	var files []rootfs.Path
+	var excludes []rootfs.Path
 	var format string
 	return &cli.Command{
 		Name:      "scan",
 		ArgsUsage: "SCAN [fileorDirs...]",
+		ArgValidator: func(ctx context.Context, cmd *cli.Command) error {
+			if cmd.Args().Len() == 0 {
+				return fmt.Errorf("scan requires at least one file or directory")
+			}
+			return c.validatePathArray(&files)(cmd.Args().Slice())
+		},
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:        "format",
@@ -41,28 +48,29 @@ func (c *app) scanCommand() *cli.Command {
 				Usage:       "Output format (list, flat, tree)",
 				Value:       "tree",
 				Destination: &format,
+				Validator: func(value string) error {
+					if value != "list" && value != "flat" && value != "tree" {
+						return fmt.Errorf("invalid format: %s", value)
+					}
+					return nil
+				},
 			},
 			rootFsFlag,
 			&cli.StringSliceFlag{
-				Name:        "exclude",
-				Usage:       "Files or directories to exclude from scanning.",
-				Destination: &excludes,
+				Name:      "exclude",
+				Usage:     "Files or directories to exclude from scanning.",
+				Validator: c.validatePathArray(&excludes),
 			},
 		},
 		Action: func(ctx context.Context, cmd *cli.Command) error {
-			if cmd.Args().Len() == 0 {
-				return fmt.Errorf("scan requires at least one file or directory")
-			}
 			fsOpener, err := openFs(*rootFsPtr)
 			if err != nil {
 				return err
 			}
 			defer fsOpener.Close()
 			fss := fsOpener.FS()
-			paths := c.rootfsPaths(cmd.Args().Slice())
-			excludes := c.rootfsPaths(excludes)
 			return c.newScanApp(scanAppInput{
-				paths:    paths,
+				paths:    files,
 				excludes: excludes,
 				format:   format,
 				fs:       fss,

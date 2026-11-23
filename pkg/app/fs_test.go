@@ -78,7 +78,11 @@ func TestCommandRootfsPrefixes(t *testing.T) {
 				if command == "scan" {
 					require.Equal(t, "/usr/bin/app\n", stdout.String())
 				} else {
-					require.Equal(t, map[string]string{"usr/bin/app": string(content)}, readArchiveFiles(t, out))
+					require.Equal(t, map[string]string{
+						"usr/bin/app": string(content),
+						"etc/passwd":  "root:x:0:0:root:/root:/sbin/nologin\n",
+						"etc/group":   "root:x:0:\n",
+					}, readArchiveFiles(t, out))
 				}
 				require.FileExists(t, archive)
 				require.FileExists(t, imageArchive)
@@ -232,8 +236,9 @@ func TestCommandsRejectUnknownRootfs(t *testing.T) {
 
 func TestScanRejectsUnknownFormat(t *testing.T) {
 	fixture := newAppFixture(t)
+	fixture.files["var/lib/dpkg/status"] = nil
 	err := fixture.run("scan", "--format", "unknown", "/missing")
-	require.EqualError(t, err, "unknown format: unknown")
+	require.EqualError(t, err, "invalid value \"unknown\" for flag -format: invalid format: unknown")
 	require.Empty(t, fixture.stdout.String())
 	require.Empty(t, fixture.stderr.String())
 }
