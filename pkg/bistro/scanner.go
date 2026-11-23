@@ -10,7 +10,7 @@ import (
 
 type Scanner interface {
 	Scan(file rootfs.Path) ([]*ElfDependency, error)
-	SetExcludes(excludes rootfs.PathSet)
+	Exclude(path ...rootfs.Path)
 }
 
 type scanner struct {
@@ -50,11 +50,11 @@ type ElfDependency struct {
 func (s *scanner) Scan(path rootfs.Path) ([]*ElfDependency, error) {
 	var result []*ElfDependency
 	onStart := func(path rootfs.Path) (bool, error) {
-		skip, err := s.excludes.Match(s.FS, path)
+		match, err := s.excludes.Match(s.FS, path)
 		if err != nil {
 			return false, err
 		}
-		return !skip, nil
+		return match == nil, nil
 	}
 	onVisit := func(path rootfs.Path, link string, info fs.FileInfo) error {
 		if !info.Mode().IsRegular() {
@@ -77,8 +77,8 @@ func (s *scanner) Scan(path rootfs.Path) ([]*ElfDependency, error) {
 	return result, nil
 }
 
-func (s *scanner) SetExcludes(excludes rootfs.PathSet) {
-	s.excludes = excludes
+func (s *scanner) Exclude(path ...rootfs.Path) {
+	s.excludes.Add(path...)
 }
 
 func (s *scanner) scanFile(path rootfs.Path) (*ElfDependency, error) {

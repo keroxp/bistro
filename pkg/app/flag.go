@@ -2,7 +2,9 @@ package app
 
 import (
 	"encoding/json"
+	"fmt"
 
+	"github.com/loilo-inc/bistro/pkg/bistro"
 	"github.com/loilo-inc/bistro/pkg/rootfs"
 	"github.com/urfave/cli/v3"
 )
@@ -18,6 +20,9 @@ func rootFsFlag() (*string, *cli.StringFlag) {
 }
 
 func decodeJsonArray[T any](arr string) ([]T, error) {
+	if arr == "null" || arr == "" {
+		return nil, fmt.Errorf("empty JSON array")
+	}
 	var result []T
 	if err := json.Unmarshal([]byte(arr), &result); err != nil {
 		return nil, err
@@ -25,11 +30,16 @@ func decodeJsonArray[T any](arr string) ([]T, error) {
 	return result, nil
 }
 
-func validateJsonArray[T any](dest *[]T) func(string) error {
+func validateJsonArray[T bistro.Validator](dest *[]T) func(string) error {
 	return func(value string) error {
 		v, err := decodeJsonArray[T](value)
 		if err != nil {
 			return err
+		}
+		for _, item := range v {
+			if err := item.Validate(); err != nil {
+				return err
+			}
 		}
 		*dest = v
 		return nil

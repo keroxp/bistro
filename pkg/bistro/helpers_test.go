@@ -108,7 +108,7 @@ func rootFSArchiveName(name string) string {
 	return strings.TrimPrefix(filepath.ToSlash(name), "/")
 }
 
-func (s stubScanner) SetExcludes(rootfs.PathSet) {}
+func (s stubScanner) Exclude(...rootfs.Path) {}
 
 // newTestBundler exposes the scanner seam for failure and dependency fixtures.
 func newTestBundler(di DI) *bundler {

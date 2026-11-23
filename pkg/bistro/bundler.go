@@ -26,7 +26,8 @@ type bundler struct {
 	scanner         Scanner
 	baker           Baker
 	packages        []*dpkg.Package
-	excludes        rootfs.PathSet
+	excludes        []rootfs.Path
+	excludeRule     rootfs.PathSet
 	files           []rootfs.Path
 	users           []User
 	groups          []Group
@@ -36,19 +37,18 @@ type bundler struct {
 }
 
 func Bundle(di DI, input BundleInput) error {
-	excludes := rootfs.NewPathSet(input.Excludes)
+	var excludes []rootfs.Path
+	excludes = append(excludes, input.Excludes...)
 	// special files to always exclude
-	excludes.Add(rootfs.MustPath("/sys"), rootfs.MustPath("/proc"))
-	if err := excludes.Resolve(di.FS); err != nil {
-		return err
-	}
-	excludeScans := excludes.Clone()
-	excludeScans.Add(input.ExcludeScans...)
-	if err := excludeScans.Resolve(di.FS); err != nil {
-		return err
-	}
+	excludes = append(excludes, rootfs.MustPath("/sys"), rootfs.MustPath("/proc"))
+
+	var excludeScans []rootfs.Path
+	excludeScans = append(excludeScans, excludes...)
+	excludeScans = append(excludeScans, input.ExcludeScans...)
+
 	scanner := NewScanner(di)
-	scanner.SetExcludes(excludeScans)
+	scanner.Exclude(excludeScans...)
+
 	baker := NewBaker(di)
 	b := &bundler{
 		DI:          di,
@@ -56,6 +56,7 @@ func Bundle(di DI, input BundleInput) error {
 		scanner:     scanner,
 		baker:       baker,
 		excludes:    excludes,
+		excludeRule: rootfs.NewPathSet(excludes),
 		users:       input.Users,
 		groups:      input.Groups,
 	}
@@ -144,9 +145,9 @@ func (b *bundler) addPackage(t *dpkg.Package) {
 }
 
 func (b *bundler) addFile(file rootfs.Path) error {
-	if matched, err := b.excludes.Match(b.FS, file); err != nil {
+	if matched, err := b.excludeRule.Match(b.FS, file); err != nil {
 		return err
-	} else if matched {
+	} else if matched != nil {
 		return nil
 	}
 	b.files = append(b.files, file)

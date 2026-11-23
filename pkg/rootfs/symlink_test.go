@@ -154,7 +154,8 @@ func TestArchiverStopsBeforeSpecialTargets(t *testing.T) {
 			fss := fstest.MapFS{"alias": {Mode: fs.ModeSymlink | 0777, Data: []byte(target)}}
 			var out bytes.Buffer
 			a := NewArchiver(fss, &out)
-			a.SetExcludes(NewPathSet(MustPaths("/proc", "/sys")))
+			a.Exclude(MustPath("/proc"))
+			a.Exclude(MustPath("/sys"))
 			require.NoError(t, a.Copy(MustPath("alias")))
 			require.NoError(t, a.Close())
 			entries := readRootFSTar(t, out.Bytes())

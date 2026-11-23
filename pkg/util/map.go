@@ -1,9 +1,17 @@
 package util
 
-import "iter"
+import (
+	"iter"
+	"maps"
+)
 
 type Map[K comparable, V any] struct {
 	data map[K]V
+}
+
+func NewMap[K comparable, V any](data map[K]V) Map[K, V] {
+	m := Map[K, V]{data: data}
+	return m
 }
 
 func (m *Map[K, V]) Get(key K) V {
@@ -65,4 +73,26 @@ func (m *Map[K, V]) Iter() iter.Seq2[K, V] {
 			}
 		}
 	}
+}
+
+func (m *Map[K, V]) Keys() iter.Seq[K] {
+	return func(yield func(K) bool) {
+		if m.data == nil {
+			return
+		}
+		for k := range m.data {
+			if !yield(k) {
+				return
+			}
+		}
+	}
+}
+
+func (m *Map[K, V]) Clone() Map[K, V] {
+	clone := Map[K, V]{}
+	if m.data != nil {
+		clone.data = make(map[K]V, len(m.data))
+		maps.Copy(clone.data, m.data)
+	}
+	return clone
 }

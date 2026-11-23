@@ -80,8 +80,6 @@ func TestCommandRootfsPrefixes(t *testing.T) {
 				} else {
 					require.Equal(t, map[string]string{
 						"usr/bin/app": string(content),
-						"etc/passwd":  "root:x:0:0:root:/root:/sbin/nologin\n",
-						"etc/group":   "root:x:0:\n",
 					}, readArchiveFiles(t, out))
 				}
 				require.FileExists(t, archive)

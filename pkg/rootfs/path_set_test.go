@@ -39,7 +39,7 @@ func TestPathSetMatch(t *testing.T) {
 			for range 2 {
 				got, err := ps.Match(fss, MustPath(tc.target))
 				require.NoError(t, err)
-				require.Equal(t, tc.want, got)
+				require.Equal(t, tc.want, got != nil)
 			}
 		})
 	}
@@ -79,7 +79,10 @@ func TestPathSetMatchAliases(t *testing.T) {
 			for range 2 {
 				got, err := ps.Match(pathSetFixture(), MustPath(tc.target))
 				require.NoError(t, err)
-				require.Equal(t, tc.want, got)
+				require.Equal(t, tc.want, got != nil)
+				if got != nil {
+					require.Equal(t, MustPath(tc.exclude), got.Rule())
+				}
 			}
 		})
 	}
@@ -100,7 +103,6 @@ func TestPathSetCloneAndAddPreserveResolution(t *testing.T) {
 	fss := countingPathFS{FS: pathSetFixture(), stats: map[string]int{}}
 	ps := NewPathSet(MustPaths("/alias/cache", "/real/keep"))
 	require.NoError(t, ps.Resolve(fss))
-	require.Equal(t, MustPaths("/real/cache"), ps.resolvedPaths, "only aliases need extra paths")
 	before := fss.stats["alias"]
 	clone := ps.Clone()
 	require.NoError(t, clone.Resolve(fss))
@@ -108,12 +110,22 @@ func TestPathSetCloneAndAddPreserveResolution(t *testing.T) {
 	clone.Add(MustPath("/other/keep"))
 	require.NoError(t, clone.Resolve(fss))
 	require.Equal(t, before, fss.stats["alias"], "adding a path must not resolve prior paths again")
-	require.Equal(t, MustPaths("/real/cache", "/real/keep"), clone.resolvedPaths)
-	require.Equal(t, MustPaths("/real/cache"), ps.resolvedPaths)
-	require.Len(t, ps.origPaths, 2)
+	matched, err := clone.Match(fss, MustPath("/other/keep"))
+	require.NoError(t, err)
+	require.NotNil(t, matched)
+	require.Equal(t, MustPath("/other/keep"), matched.Rule())
 	ps.Add(MustPath("/cycle"))
-	require.Len(t, clone.origPaths, 3)
-	require.Equal(t, MustPath("/other/keep"), clone.origPaths[2], "clone must own its backing slices")
+	matched, err = clone.Match(fss, MustPath("/cycle"))
+	require.ErrorContains(t, err, "circular symlink")
+	require.Nil(t, matched, "adding to the original must not change the clone")
+	clone.Remove(MustPath("/alias/cache"))
+	matched, err = clone.Match(fss, MustPath("/real/cache/file"))
+	require.NoError(t, err)
+	require.Nil(t, matched, "removing a rule must also remove its resolved alias")
+	matched, err = ps.Match(fss, MustPath("/real/cache/file"))
+	require.NoError(t, err)
+	require.NotNil(t, matched, "removing from the clone must preserve the original")
+	require.Equal(t, MustPath("/alias/cache"), matched.Rule())
 }
 
 func TestPathSetResolutionErrors(t *testing.T) {
@@ -126,10 +138,14 @@ func TestPathSetResolutionErrors(t *testing.T) {
 		fss := fstest.MapFS{"alias": {Mode: fs.ModeSymlink | 0777, Data: []byte("target")}, "target/file": {}}
 		ps := NewPathSet(MustPaths("/missing/file", "/alias/file"))
 		require.ErrorIs(t, ps.Resolve(lstatErrorFS{FS: fss, cause: fs.ErrPermission}), fs.ErrPermission)
-		require.Equal(t, 1, ps.resolvedIdx)
+
 		require.NoError(t, ps.Resolve(fss))
-		require.Equal(t, 2, ps.resolvedIdx)
-		require.Equal(t, MustPaths("/target/file"), ps.resolvedPaths)
+		matched, err := ps.Match(fss, MustPath("/target/file"))
+		require.NoError(t, err)
+		require.NotNil(t, matched)
+		require.Equal(t, MustPath("/alias/file"), matched.Rule())
+		require.NotNil(t, matched.Real())
+		require.Equal(t, MustPath("/target/file"), *matched.Real())
 	})
 }
 
@@ -152,7 +168,7 @@ func TestPathSetStopsAtExcludedSymlinkTargets(t *testing.T) {
 			for range 2 {
 				matched, err := ps.Match(tc.fss, MustPath("/link"))
 				require.NoError(t, err)
-				require.True(t, matched)
+				require.NotNil(t, matched)
 			}
 			// The same target must still report an error when it is not excluded.
 			unexcluded := NewPathSet(nil)
@@ -174,11 +190,11 @@ func TestPathSetMatchesCanonicalExcludedLinksBeforeResolution(t *testing.T) {
 			for range 2 {
 				matched, err := ps.Match(fss, MustPath("/real/link"))
 				require.NoError(t, err)
-				require.True(t, matched, "the canonical excluded path must match without following its final link")
+				require.NotNil(t, matched, "the canonical excluded path must match without following its final link")
 			}
 			matched, err := ps.Match(fss, MustPath("/real/keep"))
 			require.NoError(t, err)
-			require.False(t, matched, "excluding a link must not exclude its target")
+			require.Nil(t, matched, "excluding a link must not exclude its target")
 		})
 	}
 }

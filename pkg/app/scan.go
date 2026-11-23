@@ -104,7 +104,7 @@ func (c *scanApp) Run(ctx context.Context) error {
 
 func (c *scanApp) scan(paths []rootfs.Path, excludes []rootfs.Path) ([]*bistro.ElfDependency, error) {
 	scanner := bistro.NewScanner(c.DI)
-	scanner.SetExcludes(rootfs.NewPathSet(excludes))
+	scanner.Exclude(excludes...)
 	var elfDeps []*bistro.ElfDependency
 	for _, path := range paths {
 		deps, err := scanner.Scan(path)
