@@ -87,3 +87,16 @@ func TestArchiverUnexcludeRemovesResolvedRule(t *testing.T) {
 	require.NoError(t, a.Close())
 	require.Equal(t, "keep", readRootFSTar(t, out.Bytes())["real/file"].body)
 }
+
+func TestArchiverExcludesCircularLinkWithoutForbiddenRules(t *testing.T) {
+	fss := fstest.MapFS{
+		"loop": {Mode: fs.ModeSymlink | 0777, Data: []byte("loop")},
+	}
+	var out bytes.Buffer
+	a := NewArchiver(fss, &out)
+	a.Exclude(MustPath("/loop"))
+	require.NoError(t, a.Copy(MustPath("/loop")))
+	require.NoError(t, a.CopyRecursive(MustPath("/loop")))
+	require.NoError(t, a.Close())
+	require.Empty(t, readRootFSTar(t, out.Bytes()))
+}

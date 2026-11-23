@@ -129,8 +129,14 @@ func TestPathSetCloneAndAddPreserveResolution(t *testing.T) {
 }
 
 func TestPathSetResolutionErrors(t *testing.T) {
-	t.Run("candidate", func(t *testing.T) {
+	t.Run("empty rules skip resolution", func(t *testing.T) {
 		ps := NewPathSet(nil)
+		matched, err := ps.Match(lstatErrorFS{FS: pathSetFixture(), cause: fs.ErrPermission}, MustPath("/target"))
+		require.NoError(t, err)
+		require.Nil(t, matched)
+	})
+	t.Run("candidate", func(t *testing.T) {
+		ps := NewPathSet(MustPaths("/unrelated"))
 		_, err := ps.Match(lstatErrorFS{FS: pathSetFixture(), cause: fs.ErrPermission}, MustPath("/target"))
 		require.ErrorIs(t, err, fs.ErrPermission)
 	})
@@ -170,9 +176,13 @@ func TestPathSetStopsAtExcludedSymlinkTargets(t *testing.T) {
 				require.NoError(t, err)
 				require.NotNil(t, matched)
 			}
-			// The same target must still report an error when it is not excluded.
-			unexcluded := NewPathSet(nil)
-			_, err := unexcluded.Match(tc.fss, MustPath("/link"))
+			empty := NewPathSet(nil)
+			matched, err := empty.Match(tc.fss, MustPath("/link"))
+			require.NoError(t, err)
+			require.Nil(t, matched)
+			// Nonempty rules must still propagate errors for unmatched targets.
+			unexcluded := NewPathSet(MustPaths("/unrelated"))
+			_, err = unexcluded.Match(tc.fss, MustPath("/link"))
 			require.Error(t, err)
 		})
 	}

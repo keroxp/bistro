@@ -104,6 +104,9 @@ func (ps *PathSet) Resolve(fss fs.FS) error {
 
 // Match checks if the given path matches any of the original or resolved paths in the set.
 func (ps *PathSet) Match(fss fs.FS, p Path) (*PathMatch, error) {
+	if ps.origPaths.Size() == 0 {
+		return nil, nil
+	}
 	if m := ps.matchOrig(p); m != nil {
 		return m, nil
 	}
@@ -159,9 +162,7 @@ func (ps *PathSet) Clone() PathSet {
 }
 
 func (ps *PathSet) Add(p ...Path) {
-	for _, pp := range p {
-		ps.origPaths.Add(pp)
-	}
+	ps.origPaths.Add(p...)
 }
 
 func (ps *PathSet) Remove(p Path) {

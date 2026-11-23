@@ -133,11 +133,10 @@ func TestArchiverCopyPropagatesResolutionErrors(t *testing.T) {
 			a := NewArchiver(fss, &out)
 			require.ErrorIs(t, a.Copy(MustPath("alias")), cause)
 			require.NoError(t, a.Close())
-			if cause == fs.ErrNotExist {
-				require.Contains(t, readRootFSTar(t, out.Bytes()), "alias")
-			} else {
-				require.NotContains(t, readRootFSTar(t, out.Bytes()), "alias")
-			}
+			entries := readRootFSTar(t, out.Bytes())
+			require.Contains(t, entries, "alias")
+			require.Equal(t, "target", entries["alias"].header.Linkname)
+			require.NotContains(t, entries, "target")
 		})
 	}
 	t.Run("missing input", func(t *testing.T) {
