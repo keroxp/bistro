@@ -55,12 +55,12 @@ func (c *app) bundleCommand() *cli.Command {
 			},
 			&cli.StringFlag{
 				Name:      "groups",
-				Usage:     "Groups to include in the root filesystem (JSON format)",
+				Usage:     "Groups to include in the root filesystem (JSON array: {name: string, gid: int}[])",
 				Validator: validateJsonArray(&dest.Groups),
 			},
 			&cli.StringFlag{
 				Name:      "users",
-				Usage:     "Users to include in the root filesystem (JSON format)",
+				Usage:     "Users to include in the root filesystem (JSON array: {name: string, uid: int, gid: int}[])",
 				Validator: validateJsonArray(&dest.Users),
 			},
 		},
