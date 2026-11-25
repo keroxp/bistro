@@ -24,25 +24,52 @@ func TestOrderedSetZeroValue(t *testing.T) {
 func TestOrderedSetMutations(t *testing.T) {
 	set := util.NewOrderedSet("first", "second", "first")
 	require.Equal(t, 2, set.Size())
-	require.ElementsMatch(t, []string{"first", "second"}, set.Slice())
+	require.Equal(t, []string{"first", "second"}, set.Slice())
 	set.Add("second", "third", "third")
 	require.Equal(t, 3, set.Size())
 	require.True(t, set.Has("third"))
-	require.ElementsMatch(t, []string{"first", "second", "third"}, set.Slice())
+	require.Equal(t, []string{"first", "second", "third"}, set.Slice())
 	set.Remove("second")
 	set.Remove("second")
 	set.Remove("missing")
 	require.False(t, set.Has("second"))
 	require.Equal(t, 2, set.Size())
-	require.ElementsMatch(t, []string{"first", "third"}, set.Slice())
+	require.Equal(t, []string{"first", "third"}, set.Slice())
 	set.Add("second")
-	require.ElementsMatch(t, []string{"first", "second", "third"}, set.Slice())
+	require.Equal(t, []string{"first", "third", "second"}, set.Slice())
 	set.Clear()
 	require.Zero(t, set.Size())
 	require.False(t, set.Has("first"))
 	require.Empty(t, set.Slice())
 	set.Add("reused")
 	require.Equal(t, []string{"reused"}, set.Slice())
+}
+
+func TestOrderedSetConsecutiveRemovals(t *testing.T) {
+	for _, removed := range [][]string{
+		{"first", "second"},
+		{"second", "third"},
+	} {
+		t.Run(removed[0]+" then "+removed[1], func(t *testing.T) {
+			set := util.NewOrderedSet("first", "second", "third")
+			want := []string{"first", "second", "third"}
+			for _, value := range removed {
+				set.Remove(value)
+				idx := slices.Index(want, value)
+				want = slices.Delete(want, idx, idx+1)
+
+				require.Equal(t, want, set.Slice())
+				require.Equal(t, want, slices.Collect(set.Values()))
+				require.Equal(t, len(want), set.Size())
+				for _, candidate := range []string{"first", "second", "third"} {
+					require.Equal(t, slices.Contains(want, candidate), set.Has(candidate))
+				}
+				for i, remaining := range want {
+					require.Equal(t, remaining, set.At(i))
+				}
+			}
+		})
+	}
 }
 
 func TestOrderedSetIndexedIteration(t *testing.T) {
@@ -78,7 +105,7 @@ func TestOrderedSetCloneIndependence(t *testing.T) {
 				require.Len(t, original.Slice(), 2)
 			}
 			clone := original.Clone()
-			require.ElementsMatch(t, original.Slice(), clone.Slice())
+			require.Equal(t, original.Slice(), clone.Slice())
 			clone.Remove("first")
 			clone.Add("clone only")
 			original.Add("original only")

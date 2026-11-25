@@ -65,12 +65,13 @@ func (ps *PathSet) matchOrig(p Path) *PathMatch {
 }
 
 func (ps *PathSet) matchResolved(p Path) *PathMatch {
-	for rule, res := range ps.resolvedPaths.Iter() {
+	for orig := range ps.origPaths.Values() {
+		res := ps.resolvedPaths.Get(orig)
 		if res == nil {
 			continue
 		}
 		if m := pathMatch(p, *res); m {
-			return &PathMatch{rule: rule, matched: p, real: res}
+			return &PathMatch{rule: orig, matched: p, real: res}
 		}
 	}
 	return nil

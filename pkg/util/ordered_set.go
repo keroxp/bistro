@@ -6,9 +6,8 @@ import (
 )
 
 type OrderedSet[T comparable] struct {
-	set        Map[T, struct{}]
-	values     []T
-	needsOrder bool
+	set    Map[T, int]
+	values []T
 }
 
 func NewOrderedSet[T comparable](values ...T) OrderedSet[T] {
@@ -19,63 +18,55 @@ func NewOrderedSet[T comparable](values ...T) OrderedSet[T] {
 	return os
 }
 
-func (os *OrderedSet[T]) Add(value ...T) {
+func (o *OrderedSet[T]) Add(value ...T) {
 	for _, v := range value {
-		if !os.set.Has(v) {
-			os.set.Set(v, struct{}{})
-			os.needsOrder = true
+		if o.set.Has(v) {
+			continue
+		}
+		idx := o.set.Size()
+		o.set.Set(v, idx)
+		o.values = append(o.values, v)
+	}
+}
+
+func (o *OrderedSet[T]) Remove(value T) {
+	if o.set.Has(value) {
+		idx := o.set.Get(value)
+		o.set.Delete(value)
+		o.values = append(o.values[:idx], o.values[idx+1:]...)
+		for i := idx; i < len(o.values); i++ {
+			o.set.Set(o.values[i], i)
 		}
 	}
 }
 
-func (os *OrderedSet[T]) Remove(value T) {
-	if os.set.Has(value) {
-		os.set.Delete(value)
-		os.needsOrder = true
-	}
+func (o *OrderedSet[T]) Has(value T) bool {
+	return o.set.Has(value)
 }
 
-func (os *OrderedSet[T]) Has(value T) bool {
-	return os.set.Has(value)
+func (o *OrderedSet[T]) Size() int {
+	return o.set.Size()
 }
 
-func (os *OrderedSet[T]) Size() int {
-	return os.set.Size()
+func (o *OrderedSet[T]) Clear() {
+	o.set.Clear()
+	o.values = nil
 }
 
-func (os *OrderedSet[T]) Clear() {
-	os.set.Clear()
-	os.needsOrder = true
+func (o *OrderedSet[T]) At(index int) T {
+	return o.values[index]
 }
 
-func (os *OrderedSet[T]) At(index int) T {
-	if os.needsOrder {
-		os.reorder()
-	}
-	return os.values[index]
-}
-
-func (os *OrderedSet[T]) Clone() OrderedSet[T] {
+func (o *OrderedSet[T]) Clone() OrderedSet[T] {
 	return OrderedSet[T]{
-		set:        os.set.Clone(),
-		needsOrder: true,
+		set:    o.set.Clone(),
+		values: slices.Clone(o.values),
 	}
 }
 
-func (os *OrderedSet[T]) reorder() {
-	os.needsOrder = false
-	os.values = make([]T, 0, os.set.Size())
-	for k := range os.set.Keys() {
-		os.values = append(os.values, k)
-	}
-}
-
-func (os *OrderedSet[T]) Values() iter.Seq[T] {
-	if os.needsOrder {
-		os.reorder()
-	}
+func (o *OrderedSet[T]) Values() iter.Seq[T] {
 	return func(yield func(T) bool) {
-		for _, v := range os.values {
+		for _, v := range o.values {
 			if !yield(v) {
 				return
 			}
@@ -83,6 +74,6 @@ func (os *OrderedSet[T]) Values() iter.Seq[T] {
 	}
 }
 
-func (os *OrderedSet[T]) Slice() []T {
-	return slices.Collect(os.Values())
+func (o *OrderedSet[T]) Slice() []T {
+	return slices.Clone(o.values)
 }
