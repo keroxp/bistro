@@ -2,7 +2,6 @@ package app
 
 import (
 	"encoding/json"
-	"fmt"
 
 	"github.com/loilo-inc/bistro/pkg/bistro"
 	"github.com/loilo-inc/bistro/pkg/rootfs"
@@ -20,9 +19,6 @@ func rootFsFlag() (*string, *cli.StringFlag) {
 }
 
 func decodeJsonArray[T any](arr string) ([]T, error) {
-	if arr == "null" || arr == "" {
-		return nil, fmt.Errorf("empty JSON array")
-	}
 	var result []T
 	if err := json.Unmarshal([]byte(arr), &result); err != nil {
 		return nil, err
