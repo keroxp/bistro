@@ -251,7 +251,8 @@ func TestArchiverStopsAtSpecialFileSymlinks(t *testing.T) {
 
 	var out bytes.Buffer
 	root := NewArchiver(os.DirFS("/"), &out).(*archiver)
-	root.SetExcludes(NewPathSet(MustPaths(filepath.Join(dir, "proc"), filepath.Join(dir, "sys"))))
+	root.Exclude(MustPath(filepath.Join(dir, "proc")))
+	root.Exclude(MustPath(filepath.Join(dir, "sys")))
 	for _, name := range []string{
 		filepath.Join(dir, "dev", "stdout"),
 		filepath.Join(dir, "dev", "stderr"),
@@ -432,7 +433,8 @@ func TestArchiverExcludesAliasesAndAddedFiles(t *testing.T) {
 	require.NoError(t, os.Symlink("real/omitted", link))
 	var out bytes.Buffer
 	a := NewArchiver(os.DirFS("/"), &out)
-	a.SetExcludes(NewPathSet(MustPaths(filepath.Join(alias, "omitted"), "/var/lib/dpkg")))
+	a.Exclude(MustPath(filepath.Join(alias, "omitted")))
+	a.Exclude(MustPath("/var/lib/dpkg"))
 	require.NoError(t, a.Copy(MustPath(link)))
 	require.NoError(t, a.Copy(MustPath(omitted)))
 	require.NoError(t, a.Add(MustPath("/var/lib/dpkg/status.d/example"), []byte("metadata"), 0644))
@@ -541,7 +543,7 @@ func TestArchiverCopyRecursiveExcludesSubtrees(t *testing.T) {
 	}
 	var out bytes.Buffer
 	a := NewArchiver(fss, &out)
-	a.SetExcludes(NewPathSet(MustPaths("/alias/cache")))
+	a.Exclude(MustPath("/alias/cache"))
 	require.NoError(t, a.CopyRecursive(MustPath("/alias")))
 	require.NoError(t, a.Close())
 	entries := readRootFSTar(t, out.Bytes())

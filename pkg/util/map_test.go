@@ -1,11 +1,64 @@
 package util_test
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/loilo-inc/bistro/pkg/util"
 	"github.com/stretchr/testify/require"
 )
+
+func TestNewMap(t *testing.T) {
+	m := util.NewMap(map[string]int{"first": 42, "zero": 0})
+	require.Equal(t, 2, m.Size())
+	require.Equal(t, 42, m.Get("first"))
+	require.True(t, m.Has("zero"))
+
+	empty := util.NewMap[string, int](nil)
+	require.Zero(t, empty.Size())
+	empty.Set("key", 1)
+	require.Equal(t, 1, empty.Get("key"))
+}
+
+func TestMapKeys(t *testing.T) {
+	var empty util.Map[string, int]
+	require.Empty(t, slices.Collect(empty.Keys()))
+
+	m := util.NewMap(map[string]int{"first": 42, "second": 99, "removed": 0})
+	m.Delete("removed")
+	require.ElementsMatch(t, []string{"first", "second"}, slices.Collect(m.Keys()))
+	count := 0
+	for key := range m.Keys() {
+		require.True(t, m.Has(key))
+		count++
+		break
+	}
+	require.Equal(t, 1, count)
+	m.Clear()
+	require.Empty(t, slices.Collect(m.Keys()))
+}
+
+func TestMapCloneIndependence(t *testing.T) {
+	for _, state := range []string{"zero value", "populated"} {
+		t.Run(state, func(t *testing.T) {
+			var original util.Map[string, int]
+			if state == "populated" {
+				original.Set("shared", 42)
+			}
+			clone := original.Clone()
+			require.Equal(t, original.Size(), clone.Size())
+			require.Equal(t, original.Get("shared"), clone.Get("shared"))
+			clone.Set("shared", 99)
+			clone.Set("clone only", 1)
+			require.False(t, original.Has("clone only"))
+			require.NotEqual(t, original.Get("shared"), clone.Get("shared"))
+			original.Set("original only", 2)
+			require.False(t, clone.Has("original only"))
+			clone.Clear()
+			require.True(t, original.Has("original only"))
+		})
+	}
+}
 
 func TestMapZeroValue(t *testing.T) {
 	var m util.Map[string, int]

@@ -18,16 +18,21 @@ type Archiver interface {
 	Add(path Path, content []byte, mode fs.FileMode) error
 	// Close finalizes the root filesystem, writing any remaining data.
 	Close() error
-	// SetExcludes sets the paths to be excluded from the root filesystem.
-	SetExcludes(excludes PathSet)
+
+	Exclude(exclude Path)
+	Unexclude(exclude Path)
+
+	Forbid(paths Path)
+	Unforbid(paths Path)
 }
 
 type archiver struct {
-	traverser *traverser
-	copied    util.Map[Path, bool]
-	excludes  PathSet
-	tw        *tar.Writer
-	fs        fs.FS
+	traverser  *traverser
+	copied     util.Map[Path, bool]
+	excludes   PathSet
+	forbiddens PathSet
+	tw         *tar.Writer
+	fs         fs.FS
 }
 
 type resolvingState struct {
@@ -46,10 +51,6 @@ func NewArchiver(fs fs.FS, out io.Writer) Archiver {
 	return r
 }
 
-func (r *archiver) SetExcludes(excludes PathSet) {
-	r.excludes = excludes
-}
-
 func (r *archiver) Copy(path Path) error {
 	return r.traverser.Walk(path)
 }
@@ -59,9 +60,9 @@ func (r *archiver) CopyRecursive(path Path) error {
 }
 
 func (r *archiver) Add(path Path, content []byte, mode fs.FileMode) error {
-	if skip, err := r.excludes.Match(r.fs, path); err != nil {
+	if ok, err := r.shouldCopyFile(path); err != nil {
 		return err
-	} else if skip {
+	} else if !ok {
 		return nil
 	}
 	header := &tar.Header{
@@ -81,12 +82,34 @@ func (r *archiver) Close() error {
 	return r.tw.Close()
 }
 
+func (r *archiver) Exclude(exclude Path) {
+	r.excludes.Add(exclude)
+}
+
+func (r *archiver) Unexclude(exclude Path) {
+	r.excludes.Remove(exclude)
+}
+
+func (r *archiver) Forbid(paths Path) {
+	r.forbiddens.Add(paths)
+}
+
+func (r *archiver) Unforbid(paths Path) {
+	r.forbiddens.Remove(paths)
+}
+
 func (r *archiver) shouldCopyFile(path Path) (bool, error) {
-	skip, err := r.excludes.Match(r.fs, path)
-	if err != nil {
+	if match, err := r.forbiddens.Match(r.fs, path); err != nil {
 		return false, err
+	} else if match != nil {
+		return false, &ForbiddenPathError{PathMatch: *match}
 	}
-	return !skip, nil
+	if match, err := r.excludes.Match(r.fs, path); err != nil {
+		return false, err
+	} else if match != nil {
+		return false, nil
+	}
+	return true, nil
 }
 
 func (r *archiver) copyOne(path Path, link string, lstat fs.FileInfo) (err error) {

@@ -181,7 +181,7 @@ func TestBakerMetadataWriteFailures(t *testing.T) {
 			pkg := testPackage(t, "example", "", "", "")
 			d := packageFilesFixture(t, []*dpkg.Package{pkg}, nil)
 			b := NewBaker(DI{FS: d.fs}).(*baker)
-			require.ErrorIs(t, b.writePackageMetadata(r, pkg, rootfs.PathSet{}), failure)
+			require.ErrorIs(t, b.writePackageMetadata(r, pkg), failure)
 			assert.Equal(t, failAt, r.calls)
 		})
 	}
